@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <errno.h>
 
 const int MAX_COMNAD_AMOUNT = 256;
 const int MAX_COMNAD_LENGTH = 256;
@@ -51,8 +52,22 @@ void* myThreadFun(int com_id) {
     return NULL;
 }
 
-int main(void) {
+
+int main(int argc, char** argv) {
+    if (argc != 2)
+        perror("argc != 2; 1 arg required: FILE_NAME");
+    char* src_name = argv[1];
+
     FILE* le_file = fopen("./poop.txt", "r");
+    if( le_file == NULL ) {
+        printf(stderr, "Couldn't open %s: %s\n", src_name, strerror(errno));
+        exit(1);
+    }
+    char word[5];
+    if (fscanf(le_file, "%4s", word) != 1) {
+        fprintf(stderr, "Error parsing\n");
+        return EXIT_FAILURE;
+    }
     pthread_t thread[MAX_COMNAD_AMOUNT];
 
     if (le_file == NULL)
