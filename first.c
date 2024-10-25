@@ -58,7 +58,7 @@ int main(int argc, char** argv) {
         perror("argc != 2; 1 arg required: FILE_NAME");
     char* src_name = argv[1];
 
-    FILE* le_file = fopen("./poop.txt", "r");
+    FILE* le_file = fopen(argv[1], "r");
     if( le_file == NULL ) {
         printf(stderr, "Couldn't open %s: %s\n", src_name, strerror(errno));
         exit(1);
