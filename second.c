@@ -65,13 +65,10 @@ void listFilesRecursively(char* origPath, char* backupPath) {
         if (strcmp(dp->d_name, ".") != 0 && strcmp(dp->d_name, "..") != 0) {
             printf("%s\n", dp->d_name);
 
-            strcpy(currOrigPath, origPath);
-            strcat(currOrigPath, "/");
-            strcat(currOrigPath, dp->d_name);
 
-            strcpy(currBackupPath, backupPath);
-            strcat(currBackupPath, "/");
-            strcat(currBackupPath, dp->d_name);
+            sprintf(currOrigPath, "%s/%s", origPath, dp->d_name);
+
+            sprintf(currBackupPath, "%s/%s", backupPath, dp->d_name);
 
             if (is_regular_file(currOrigPath)) {
                 strcat(currBackupPath, ".gz");
