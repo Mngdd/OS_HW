@@ -1,94 +1,111 @@
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
-#include <pthread.h>
 #include <unistd.h>
 #include <errno.h>
+#include <string.h>
+#include <sys/wait.h>
 
-const int MAX_COMNAD_AMOUNT = 256;
-const int MAX_COMNAD_LENGTH = 256;
+const int MAX_COMMAND_AMOUNT = 256;
+const int MAX_COMMAND_LENGTH = 256;
 char commands_arr[256][256];
 
-void* myThreadFun(int com_id) {
-    char s[MAX_COMNAD_LENGTH];
+void executeCommand(int com_id) {
+    char s[MAX_COMMAND_LENGTH];
     strcpy(s, commands_arr[com_id]);
 
     char* token;
-
     int cur_word = 0;
 
-    char timeout[MAX_COMNAD_LENGTH];
-    char command[MAX_COMNAD_LENGTH];
-
+    char timeout[MAX_COMMAND_LENGTH];
+    char command[MAX_COMMAND_LENGTH];
     int com_len = 0;
-    int time_len = 0;
 
+    // Parse timeout and command from input string
     for (token = strtok(s, " "); token; token = strtok(NULL, " ")) {
         switch (cur_word) {
-            case 0:
-                for (int char_ = 0; char_ < strlen(token); ++char_, ++time_len) {
-                    timeout[time_len] = token[char_];
-                }
+            case 0:  // First token is the timeout
+                strcpy(timeout, token);
                 break;
-            default:
+            default: // Remaining tokens form the command
                 if (cur_word != 1) {
-                    command[com_len] = ' ';
-                    com_len += 1;
+                    command[com_len++] = ' ';
                 }
-
-                for (int char_ = 0; char_ < strlen(token); ++char_, ++com_len) {
-                    command[com_len] = token[char_];
+                for (int i = 0; i < strlen(token); i++) {
+                    command[com_len++] = token[i];
                 }
                 break;
         }
-
         ++cur_word;
     }
-    command[com_len - 1] = '\0';
+    command[com_len] = '\0';
+
+    // Sleep for the specified timeout
     sleep(atoi(timeout));
 
-    system(command);
-    printf("time passed=%i; executed=%s\n", atoi(timeout), command);
-    return NULL;
+    // Prepare the command and arguments for execvp
+    char* args[MAX_COMMAND_LENGTH];
+    int argc = 0;
+    token = strtok(command, " ");
+    while (token != NULL) {
+        args[argc++] = token;
+        token = strtok(NULL, " ");
+    }
+    args[argc] = NULL;
+
+    // Execute the command with execvp
+    if (execvp(args[0], args) == -1) {
+        perror("execvp failed");
+        exit(1); // Exit child process on execvp failure
+    }
 }
 
-
 int main(int argc, char** argv) {
-    if (argc != 2)
-        perror("argc != 2; 1 arg required: FILE_NAME");
-    char* src_name = argv[1];
-
-    FILE* le_file = fopen(argv[1], "r");
-    if( le_file == NULL ) {
-        printf(stderr, "Couldn't open %s: %s\n", src_name, strerror(errno));
-        exit(1);
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s FILE_NAME\n", argv[0]);
+        return 1;
     }
-    char word[5];
-    if (fscanf(le_file, "%4s", word) != 1) {
-        fprintf(stderr, "Error parsing\n");
+
+    char* src_name = argv[1];
+    FILE* le_file = fopen(src_name, "r");
+    if (le_file == NULL) {
+        fprintf(stderr, "Couldn't open %s: %s\n", src_name, strerror(errno));
         return EXIT_FAILURE;
     }
-    pthread_t thread[MAX_COMNAD_AMOUNT];
 
-    if (le_file == NULL)
-        return -1;
+    char line[MAX_COMMAND_LENGTH];
+    int curr_command = 0;
 
-    char line[MAX_COMNAD_LENGTH];
-
-    int curr_thread = 0;
-
+    // Read commands from file
     while (fgets(line, sizeof(line), le_file)) {
-        strcpy(commands_arr[curr_thread], line);
-
-        pthread_create(&thread[curr_thread], NULL, myThreadFun, curr_thread);
-        ++curr_thread;
+        line[strcspn(line, "\n")] = 0;  // Remove newline character
+        strcpy(commands_arr[curr_command], line);
+        curr_command++;
     }
     fclose(le_file);
 
-    for (int i = 0; i != 4; i++) {
-        if (pthread_join(thread[i], NULL) != 0) {
-            printf("ERROR : pthread join failed.\n");
-            return (0);
+    // Fork and execute each command in a separate process
+    for (int i = 0; i < curr_command; i++) {
+        pid_t pid = fork();
+        if (pid == 0) {
+            executeCommand(i);
+            perror("exec failed");
+            exit(-1);
+        } else if (pid < 0) {
+            // Error in fork
+            perror("fork failed");
+            exit(EXIT_FAILURE);
         }
     }
+
+    // Parent process waits for all child processes to complete
+    for (int i = 0; i < curr_command; i++) {
+        int status;
+        wait(&status);  // Wait for each child process
+        if (!WIFEXITED(status)) {
+            printf("Child process did not terminate normally\n");
+        }
+    }
+
+    return 0;
 }
