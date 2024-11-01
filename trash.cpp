@@ -8,7 +8,7 @@
 
 const int MAX_COMMAND_AMOUNT = 256;
 const int MAX_COMMAND_LENGTH = 256;
-char commands_arr[MAX_COMMAND_AMOUNT][MAX_COMMAND_LENGTH];
+char commands_arr[256][256];
 
 void executeCommand(int com_id) {
     char s[MAX_COMMAND_LENGTH];
@@ -102,9 +102,7 @@ int main(int argc, char** argv) {
     for (int i = 0; i < curr_command; i++) {
         int status;
         wait(&status);  // Wait for each child process
-        if (WIFEXITED(status)) {
-            printf("Child process completed with exit status %d\n", WEXITSTATUS(status));
-        } else {
+        if (!WIFEXITED(status)) {
             printf("Child process did not terminate normally\n");
         }
     }
