@@ -69,34 +69,40 @@ void listFilesRecursively(char* origPath, char* backupPath) {
             sprintf(currOrigPath, "%s/%s", origPath, dp->d_name);
 
             sprintf(currBackupPath, "%s/%s", backupPath, dp->d_name);
-
+		
             if (is_regular_file(currOrigPath)) {
-                strcat(currBackupPath, ".gz");
-                _Bool need_create_file = access(currBackupPath, F_OK) != 0;
+		struct stat buf;
+	    	int x;
 
-                if (!need_create_file) {
-                    time_t orig_t = getFileModTime(currOrigPath);
-                    time_t backup_t = getFileModTime(currBackupPath);
-                    printf("Original %s date: %ld, Backup %s date: %ld\n", currOrigPath, orig_t, currBackupPath, backup_t);
+		x = lstat(currOrigPath, &buf);
+		if (!S_ISLNK(buf.st_mode)){
+                	strcat(currBackupPath, ".gz");
+                	_Bool need_create_file = access(currBackupPath, F_OK) != 0;
 
-                    if (orig_t > backup_t) {
-                        printf("----------UPDATE NEEDED for %s\n", backupPath);
+               		if (!need_create_file) {
+                    		time_t orig_t = getFileModTime(currOrigPath);
+                    		time_t backup_t = getFileModTime(currBackupPath);
+                    		printf("Original %s date: %ld, Backup %s date: %ld\n", currOrigPath, orig_t, currBackupPath, backup_t);
 
-                        char* rm_args[] = {"rm", currBackupPath, NULL};
-                        execute_command(rm_args);
-                        need_create_file = 1;
-                    }
-                }
+                    		if (orig_t > backup_t) {
+                        		printf("----------UPDATE NEEDED for %s\n", backupPath);
 
-                if (need_create_file) {
-                    char* cp_args[] = {"cp", "-r", currOrigPath, backupPath, NULL};
-                    execute_command(cp_args);
+                        		char* rm_args[] = {"rm", currBackupPath, NULL};
+                        		execute_command(rm_args);
+                        		need_create_file = 1;
+                    		}
+                	}
 
-                    char* tmp_fname[1000];
-                    sprintf(tmp_fname, "%s/%s", backupPath, dp->d_name);
-                    char* gzip_args[] = {"gzip", tmp_fname, NULL};
-                    execute_command(gzip_args);
-                }
+                	if (need_create_file) {
+                    		char* cp_args[] = {"cp", "-r", currOrigPath, backupPath, NULL};
+                    		execute_command(cp_args);
+
+                    		char* tmp_fname[1000];
+                    		sprintf(tmp_fname, "%s/%s", backupPath, dp->d_name);
+                    		char* gzip_args[] = {"gzip", tmp_fname, NULL};
+                    		execute_command(gzip_args);
+                	}
+		}
             } else {
                 DIR* bckp_test_dir = opendir(currBackupPath);
                 if (bckp_test_dir) {
